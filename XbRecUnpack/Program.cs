@@ -1,12 +1,5 @@
 ﻿/* XbRecUnpack - tool for extracting Xbox recctrl.bin files
  * by emoose
- * 
- * Changelog:
- * v1.234:
- * - Changed out LZX decoder to a native C# version, no longer need to P/Invoke any windows DLLs :)
- * 
- * v0.123:
- * - Initial version, finally got Xbox/Xbox360 recctrl unpacking to work fine!
  */
 
 using System;
@@ -25,7 +18,7 @@ namespace XbRecUnpack
             bool extractFiles = true;
 
             Console.WriteLine("XbRecUnpack - tool for extracting Xbox recctrl.bin files");
-            Console.WriteLine("v1.234 by emoose");
+            Console.WriteLine("v1.2345 by emoose");
 
             string filePath = @"";
             int pathIdx = 0;
@@ -143,7 +136,11 @@ namespace XbRecUnpack
 
                     try
                     {
-                        entry.Extract(dataStream, File.Create(destPath));
+                        using(var destStream = File.Create(destPath))
+                            entry.Extract(dataStream, destStream);
+
+                        // Set last modified time to entry's timestamp
+                        File.SetLastWriteTime(destPath, entry.DateTime);
                     }
                     catch (LzxInvalidWindowSize)
                     {

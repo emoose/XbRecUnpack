@@ -14,7 +14,7 @@ namespace XbRecUnpack
         public ushort VersionIndex;
         public ushort DeviceIndex;
         public uint DecompressedSize;
-        public ulong FileTime;
+        public long FileTime;
         public string FilePath;
 
         // Array of LZX compression-block sizes, all should decompress to a 0x8000 byte block
@@ -33,6 +33,14 @@ namespace XbRecUnpack
                 foreach (var i in LzxBlocks)
                     ret += i;
                 return ret;
+            }
+        }
+
+        public DateTime DateTime
+        {
+            get
+            {
+                return DateTime.FromFileTime(FileTime);
             }
         }
 
@@ -55,8 +63,8 @@ namespace XbRecUnpack
             // So we need this so we can trim it down to the proper size
             DecompressedSize = reader.ReadUInt32();
 
-            // FILETIME timestamp of the file, we should probably convert this...
-            FileTime = reader.ReadUInt64();
+            // FILETIME timestamp of the file
+            FileTime = reader.ReadInt64();
 
             // Path of this file
             FilePath = reader.ReadMSString();
