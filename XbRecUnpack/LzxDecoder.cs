@@ -531,37 +531,33 @@ namespace XbRecUnpack
             /* intel E8 decoding */
             if ((m_state.frames_read++ < 32768) && m_state.intel_filesize != 0)
             {
-                if (outLen <= 6 || m_state.intel_started == 0)
-                {
-                    m_state.intel_curpos += outLen;
-                }
-                else
-                {
-                    long dataend = (outLen - 10);
-                    int curpos = m_state.intel_curpos;
-                    int filesize = m_state.intel_filesize;
-                    int abs_off, rel_off;
+                int curpos = m_state.intel_curpos;
+                long dataend = curpos + (outLen - 10);
+                int filesize = m_state.intel_filesize;
+                int abs_off, rel_off;
 
-                    m_state.intel_curpos = (int)curpos + outLen;
-
-                    outData.Position = outpos;
-                    while (outData.Position < dataend)
+                long prevpos = outData.Position;
+                outData.Position = outpos;
+                while (outData.Position < dataend)
+                {
+                    if (outData.ReadByte() != 0xE8) { curpos++; continue; }
+                    abs_off = outData.ReadByte() | (outData.ReadByte() << 8) | (outData.ReadByte() << 16) | (outData.ReadByte() << 24);
+                    if ((abs_off >= -curpos) && (abs_off < filesize))
                     {
-                        if (outData.ReadByte() != 0xE8) { curpos++; continue; }
-                        abs_off = outData.ReadByte() | (outData.ReadByte() << 8) | (outData.ReadByte() << 16) | (outData.ReadByte() << 24);
-                        if ((abs_off >= -curpos) && (abs_off < filesize))
-                        {
-                            rel_off = (abs_off >= 0) ? abs_off - curpos : abs_off + filesize;
-                            outData.Position -= 4;
-                            outData.WriteByte((byte)(rel_off & 0xFF));
-                            outData.WriteByte((byte)((rel_off >> 8) & 0xFF));
-                            outData.WriteByte((byte)((rel_off >> 16) & 0xFF));
-                            outData.WriteByte((byte)((rel_off >> 24) & 0xFF));
-                        }
-                        curpos += 5;
+                        rel_off = (abs_off >= 0) ? abs_off - curpos : abs_off + filesize;
+                        outData.Position -= 4;
+                        outData.WriteByte((byte)(rel_off & 0xFF));
+                        outData.WriteByte((byte)((rel_off >> 8) & 0xFF));
+                        outData.WriteByte((byte)((rel_off >> 16) & 0xFF));
+                        outData.WriteByte((byte)((rel_off >> 24) & 0xFF));
                     }
+                    curpos += 5;
                 }
+                outData.Position = prevpos;
             }
+
+            m_state.intel_curpos += outLen;
+
             return 0;
         }
 
