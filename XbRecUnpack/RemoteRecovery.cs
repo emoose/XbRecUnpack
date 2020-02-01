@@ -23,6 +23,15 @@ namespace XbRecUnpack
 
         List<string> Variants = new List<string>();
 
+        static DateTime DosToDateTime(ushort date, ushort time)
+        {
+            var year = (date >> 9) + 1980;
+            var month = (date & 0x01e0) >> 5;
+            var day = date & 0x1F;
+            return new DateTime(year, month, day)
+                .AddHours(time >> 11).AddMinutes((time >> 5) & 0x3f).AddSeconds((time & 0x1f) * 2);
+        }
+
         public RemoteRecovery(Stream exeStream)
         {
             reader = new BinaryReader(exeStream);
@@ -212,6 +221,8 @@ namespace XbRecUnpack
                                 sizeRemain -= read;
                             }
                         }
+
+                        File.SetLastWriteTime(entryPath, DosToDateTime(cfEntry.Item1.date, cfEntry.Item1.time));
                     }
 
                     cabIndex++;
@@ -236,6 +247,7 @@ namespace XbRecUnpack
                             File.Delete(destPath);
 
                         File.Copy(entryPath, destPath);
+                        File.SetLastWriteTime(destPath, File.GetLastWriteTime(entryPath));
                     }
                 }
 
