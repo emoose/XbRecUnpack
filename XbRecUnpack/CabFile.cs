@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.IO;
 
+// TODO: this doesn't support cabs that use multiple CFFOLDERS (if any do)
+// Also only supports LZX compression, there's code to support non-compressed data too but it's untested
 namespace XbRecUnpack
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]

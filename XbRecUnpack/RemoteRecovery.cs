@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 
 namespace XbRecUnpack
@@ -60,17 +58,24 @@ namespace XbRecUnpack
 
             Console.WriteLine("Scanning EXE...");
             cabHeaderPos = new List<long>();
-            while(reader.BaseStream.Position + 8 < reader.BaseStream.Length)
+
+            // Track position/length ourselves instead of needing to call stream accessors
+            long position = reader.BaseStream.Position;
+            long length = reader.BaseStream.Length;
+
+            // Fast pattern search via sliding-window, kinda
+            // From https://codereview.stackexchange.com/questions/202235/finding-specific-small-byte-arrays-in-large-binary-files
+            ulong pattern = ((ulong)0x4643534D).EndianSwap();
+            ulong view = 0;
+            long viewed = 0;
+
+            while (position + 8 < length)
             {
-                var currentPos = reader.BaseStream.Position;
-                if (reader.ReadUInt64() == 0x4643534D)
-                {
-                    cabHeaderPos.Add(currentPos);
-                    var size = reader.ReadUInt32();
-                    reader.BaseStream.Position += (size - 0xC);
-                }
-                else
-                    reader.BaseStream.Position = currentPos + 1;
+                view = (view << 8) | reader.ReadByte() ; // shift-in next byte
+                position++;
+                viewed++;
+                if (view == pattern && viewed >= 8) // make sure we already got at least 4 bytes
+                    cabHeaderPos.Add(position - 8);
             }
 
             if (cabHeaderPos.Count < 2)
@@ -79,36 +84,50 @@ namespace XbRecUnpack
                 return false;
             }
 
+            string[] csv = null;
             // Read the second cab in the file, contains some meta info about the other ones
-            reader.BaseStream.Position = cabHeaderPos[1];
-            var metaCab = new CabFile(reader.BaseStream);
-            if (!metaCab.Read())
+            while (cabHeaderPos.Count > 1)
             {
-                Console.WriteLine("Error: failed to read meta-cab!");
-                return false;
+                reader.BaseStream.Position = cabHeaderPos[1];
+
+                // Remove the meta cab from cab header list...
+                cabHeaderPos.RemoveAt(1);
+
+                // Try reading metacab
+                var metaCab = new CabFile(reader.BaseStream);
+                if (!metaCab.Read())
+                    continue;
+
+                // Read the manifest file...
+                var manifest = new CFFILE();
+                if (!metaCab.GetEntry("manifest.csv", ref manifest, false))
+                    continue;
+
+                Stream manifestStream = null;
+                try
+                {
+                    manifestStream = metaCab.OpenFile(manifest);
+                    if (manifestStream == null)
+                        continue;
+                }
+                catch
+                {
+                    continue;
+                }
+
+                using (var reader2 = new BinaryReader(manifestStream))
+                {
+                    byte[] data = reader2.ReadBytes((int)reader2.BaseStream.Length);
+                    var str = Encoding.ASCII.GetString(data);
+                    csv = str.Replace("\r\n", "\n").Split(new char[] { '\n' });
+                }
+                break;
             }
 
-            // Remove the meta cab from cab header list...
-            cabHeaderPos.RemoveAt(1);
-
-            // Read the manifest file...
-            var manifest = new CFFILE();
-            if (!metaCab.GetEntry("manifest.csv", ref manifest, false))
+            if(csv == null)
             {
-                Console.WriteLine("Error: failed to find manifest.csv inside meta-cab!");
+                Console.WriteLine("Error: failed to read manifest.csv from meta-cab section!");
                 return false;
-            }
-
-            var manifestStream = metaCab.OpenFile(manifest);
-            if (manifestStream == null)
-                return false;
-
-            string[] csv;
-            using (var reader2 = new BinaryReader(manifestStream))
-            {
-                byte[] data = reader2.ReadBytes((int)reader2.BaseStream.Length);
-                var str = Encoding.ASCII.GetString(data);
-                csv = str.Replace("\r\n", "\n").Split(new char[]{ '\n' });
             }
 
             Variants = new List<string>();
@@ -118,9 +137,13 @@ namespace XbRecUnpack
                 if (string.IsNullOrEmpty(line))
                     continue;
 
-                var parts = line.Split(new char[] { ',' });
-                if (parts.Length < 6)
+                var parts = new List<string>(line.Split(new char[] { ',' }));
+                if (parts.Count < 6)
                     continue;
+
+                // Older SDKs don't have a variant section, so we'll insert one
+                if (parts[1] == "file" || parts[1] == "copy" || parts[1] == "sharedfile" || parts[1] == "backupsharedfile" || parts[1] == "singlefile")
+                    parts.Insert(1, "");
 
                 if (parts[2] != "file" && parts[2] != "copy" && parts[2] != "sharedfile" && parts[2] != "backupsharedfile" && parts[2] != "singlefile")
                     continue;
@@ -273,6 +296,12 @@ namespace XbRecUnpack
                 }
 
                 totalIndex++;
+            }
+
+            if (mainCab.Entries.Count > cabIndex)
+            {
+                var diff = mainCab.Entries.Count - cabIndex;
+                Console.WriteLine($"Note: CAB contains {diff} more file{(diff == 1 ? "" : "s")} than were inside the manifest!");
             }
 
             return true;

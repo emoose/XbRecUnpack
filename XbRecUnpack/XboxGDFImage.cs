@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using System.Runtime.InteropServices;
 
+// NOTE: Only tested with Xbox OG recovery ISOs, games & X360 ISOs likely won't work well with it
 namespace XbRecUnpack
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
@@ -237,5 +237,4 @@ namespace XbRecUnpack
             source.Close();
         }
     }
-
 }
