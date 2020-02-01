@@ -5,6 +5,7 @@ Tool for extracting Xbox/Xbox360 recovery files.
 ```
 Usage:
   XbRecUnpack.exe [-L/-R] <path-to-recctrl.bin> [output-folder]
+  XbRecUnpack.exe [-L/-R] <path-to-remote-recovery.exe> [output-folder]
   XbRecUnpack.exe [-L/-R] <path-to-recovery.iso> [output-folder]
   XbRecUnpack.exe [-L/-R] <path-to-recovery.zip> [output-folder]
 Will try extracting all files to the given output folder

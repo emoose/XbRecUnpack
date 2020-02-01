@@ -21,6 +21,20 @@ namespace XbRecUnpack
             return Encoding.ASCII.GetString(str);
         }
 
+        public static string ReadNullTermASCII(this BinaryReader reader)
+        {
+            var list = new List<byte>();
+
+            var byt = reader.ReadByte();
+            while(byt != 0)
+            {
+                list.Add(byt);
+                byt = reader.ReadByte();
+            }
+
+            return Encoding.ASCII.GetString(list.ToArray());
+        }
+
         /// <summary>
         /// Reads in a block from a file and converts it to the struct
         /// type specified by the template parameter

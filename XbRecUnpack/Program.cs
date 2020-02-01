@@ -1,4 +1,4 @@
-﻿/* XbRecUnpack - tool for extracting Xbox recctrl.bin files
+﻿/* XbRecUnpack - tool for extracting Xbox/Xbox360 recovery files
  * by emoose
  */
 
@@ -29,7 +29,8 @@ namespace XbRecUnpack
             bool printRomInfo = false;
 
             Console.WriteLine("XbRecUnpack - tool for extracting Xbox/Xbox360 recovery files");
-            Console.WriteLine("v1.2345 by emoose");
+            Console.WriteLine("v2.3456 by emoose");
+            Console.WriteLine();
 
             string filePath = @"";
             int pathIdx = 0;
@@ -54,6 +55,7 @@ namespace XbRecUnpack
             {
                 Console.WriteLine("Usage: ");
                 Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recctrl.bin> [output-folder]");
+                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-remote-recovery.exe> [output-folder]");
                 Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.iso> [output-folder]");
                 Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.zip> [output-folder]");
                 Console.WriteLine("Will try extracting all files to the given output folder");
@@ -76,7 +78,9 @@ namespace XbRecUnpack
             }
 
             bool result = false;
-            if (Path.GetExtension(filePath).ToLower() == ".iso")
+            if(Path.GetExtension(filePath).ToLower() == ".exe")
+                result = ProcessRecoveryEXE(filePath, outputPath, extractFiles);
+            else if (Path.GetExtension(filePath).ToLower() == ".iso")
                 result = ProcessRecoveryISO(File.OpenRead(filePath), outputPath, extractFiles);
             else if (Path.GetExtension(filePath).ToLower() == ".zip")
                 result = ProcessRecoveryZIP(filePath, outputPath, extractFiles);
@@ -183,6 +187,21 @@ namespace XbRecUnpack
 
             foreach (var dir in Directory.GetDirectories(path))
                 SearchForXboxRoms(dir, printRomInfo);
+        }
+
+        static bool ProcessRecoveryEXE(string exePath, string outputPath, bool extractFiles = true, bool consoleOutput = true)
+        {
+            using (var fileStream = File.OpenRead(exePath))
+            {
+                var recovery = new RemoteRecovery(fileStream);
+                if (!recovery.Read())
+                    return false;
+
+                if(extractFiles)
+                    Console.WriteLine($"Extracting to {outputPath}...");
+
+                return recovery.Extract(outputPath, !extractFiles);
+            }
         }
 
         static bool ProcessRecoveryZIP(string zipPath, string outputPath, bool extractFiles = true, bool consoleOutput = true)
