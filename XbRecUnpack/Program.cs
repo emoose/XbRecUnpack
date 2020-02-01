@@ -9,17 +9,54 @@ using System.Text;
 using System.IO;
 using System.IO.Compression;
 using DiscUtils.Iso9660;
+using DiscUtils.Udf;
 
 namespace XbRecUnpack
 {
     class Program
     {
+
+        static List<int> Versions = new List<int>();
+        static List<int> Motherboards = new List<int>();
+        static string outputPath;
+
+        static void SearchForXboxRoms(string path, bool printRomInfo = false)
+        {
+            foreach(var file in Directory.GetFiles(path))
+            {
+                if(Path.GetFileName(file).ToLower() == "xboxrom_update.bin")
+                {
+                    using (var reader = new BinaryReader(File.OpenRead(file)))
+                    {
+                        var header = new XboxRomHeader();
+                        header.Read(reader);
+
+                        if (printRomInfo)
+                        {
+                            Console.WriteLine(path.Substring(outputPath.Length + 1));
+                            Console.WriteLine($"  {header.MotherboardType} v{header.Version} (SMC v{header.SmcBuild})");
+                            Console.WriteLine();
+                        }
+
+                        if (!Versions.Contains(header.Version))
+                            Versions.Add(header.Version);
+                        if (!Motherboards.Contains(header.MotherboardTypeInt))
+                            Motherboards.Add(header.MotherboardTypeInt);
+                    }
+                }
+            }
+
+            foreach (var dir in Directory.GetDirectories(path))
+                SearchForXboxRoms(dir, printRomInfo);
+        }
+
         [STAThread]
         static void Main(string[] args)
         {
             bool extractFiles = true;
+            bool printRomInfo = false;
 
-            Console.WriteLine("XbRecUnpack - tool for extracting Xbox recctrl.bin files");
+            Console.WriteLine("XbRecUnpack - tool for extracting Xbox/Xbox360 recovery files");
             Console.WriteLine("v1.2345 by emoose");
 
             string filePath = @"";
@@ -31,6 +68,11 @@ namespace XbRecUnpack
                     extractFiles = false;
                     pathIdx++; // use next arg as filepath
                 }
+                else if(args[0].ToLower() == "-r")
+                {
+                    printRomInfo = true;
+                    pathIdx++;
+                }
                 if (args.Length > pathIdx)
                     filePath = args[pathIdx];
             }
@@ -39,17 +81,19 @@ namespace XbRecUnpack
             if (string.IsNullOrEmpty(filePath))
             {
                 Console.WriteLine("Usage: ");
-                Console.WriteLine("  XbRecUnpack.exe [-L] <path-to-recctrl.bin> [output-folder]");
-                Console.WriteLine("  XbRecUnpack.exe [-L] <path-to-recovery.iso> [output-folder]");
-                Console.WriteLine("  XbRecUnpack.exe [-L] <path-to-recovery.zip> [output-folder]");
+                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recctrl.bin> [output-folder]");
+                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.iso> [output-folder]");
+                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.zip> [output-folder]");
                 Console.WriteLine("Will try extracting all files to the given output folder");
                 Console.WriteLine("If output folder isn't specified, will extract to \"<input-file-path>_ext\"");
                 Console.WriteLine("-L will only list files inside recovery without extracting them");
+                Console.WriteLine("-R will print info about each extracted X360 xboxrom image");
+                Console.WriteLine("  (if -R isn't used, will print a summary instead)");
                 return;
             }
 
             string dataPath = filePath.Replace("recctrl", "recdata");
-            string outputPath = filePath + "_ext";
+            outputPath = filePath + "_ext";
             if (args.Length > pathIdx)
                 outputPath = args[pathIdx];
 
@@ -77,6 +121,22 @@ namespace XbRecUnpack
             if (!extractFiles)
                 return;
 
+            Console.WriteLine();
+            Console.WriteLine("xboxrom info:");
+
+            SearchForXboxRoms(outputPath, printRomInfo);
+
+            Console.WriteLine($"{Versions.Count} included kernel build{(Versions.Count == 1 ? "" : "s")}");
+            foreach (var ver in Versions)
+                Console.WriteLine($"  {ver}");
+            Console.WriteLine($"{Motherboards.Count} supported motherboard{(Motherboards.Count == 1 ? "" : "s")}");
+
+            string[] types = { "none/unk", "xenon", "zephyr", "falcon", "jasper", "trinity", "corona", "winchester" };
+            for(int i = 0; i < types.Length; i++)
+                if(Motherboards.Contains(i))
+                    Console.WriteLine($"  {types[i]}");
+
+            Console.WriteLine();
             Console.WriteLine("Extract complete, hit enter to exit");
             Console.ReadLine();
         }
@@ -110,13 +170,19 @@ namespace XbRecUnpack
 
         static void ProcessRecoveryISO(Stream isoStream, string outputPath, bool extractFiles = true, bool consoleOutput = true)
         {
-            var cdReader = new CDReader(isoStream, true, true);
-
-            using(var reader = new BinaryReader(cdReader.OpenFile("recctrl.bin", FileMode.Open)))
+            DiscUtils.Vfs.VfsFileSystemFacade vfs = new CDReader(isoStream, true, false);
+            if (!vfs.FileExists("recctrl.bin"))
+                vfs = new UdfReader(isoStream);
+            if (!vfs.FileExists("recctrl.bin"))
+            {
+                Console.WriteLine("Failed to find recctrl.bin inside image!");
+                return;
+            }
+            using (var reader = new BinaryReader(vfs.OpenFile("recctrl.bin", FileMode.Open)))
             {
                 Stream dataStream = null;
                 if (extractFiles)
-                    dataStream = cdReader.OpenFile("recdata.bin", FileMode.Open);
+                    dataStream = vfs.OpenFile("recdata.bin", FileMode.Open);
 
                 ProcessRecovery(reader, dataStream, outputPath, consoleOutput);
 

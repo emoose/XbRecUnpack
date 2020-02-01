@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace XbRecUnpack
 {
@@ -18,6 +19,32 @@ namespace XbRecUnpack
                 reader.BaseStream.Position++; // pad to next power of 2
 
             return Encoding.ASCII.GetString(str);
+        }
+
+        /// <summary>
+        /// Reads in a block from a file and converts it to the struct
+        /// type specified by the template parameter
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="reader"></param>
+        /// <returns></returns>
+        public static T ReadStruct<T>(this BinaryReader reader)
+        {
+            var size = Marshal.SizeOf(typeof(T));
+            // Read in a byte array
+            var bytes = reader.ReadBytes(size);
+
+            return BytesToStruct<T>(bytes);
+        }
+
+        public static T BytesToStruct<T>(byte[] bytes)
+        {
+            // Pin the managed memory while, copy it out the data, then unpin it
+            var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+            var theStructure = (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T));
+            handle.Free();
+
+            return theStructure;
         }
 
         // "C# Human Readable File Size Optimized Function" from https://www.somacon.com/p576.php
@@ -68,6 +95,27 @@ namespace XbRecUnpack
             readable = (readable / 1024);
             // Return formatted number with suffix
             return readable.ToString("0.### ") + suffix;
+        }
+
+        public static ushort EndianSwap(this ushort num)
+        {
+            byte[] data = BitConverter.GetBytes(num);
+            Array.Reverse(data);
+            return BitConverter.ToUInt16(data, 0);
+        }
+
+        public static uint EndianSwap(this uint num)
+        {
+            byte[] data = BitConverter.GetBytes(num);
+            Array.Reverse(data);
+            return BitConverter.ToUInt32(data, 0);
+        }
+
+        public static ulong EndianSwap(this ulong num)
+        {
+            byte[] data = BitConverter.GetBytes(num);
+            Array.Reverse(data);
+            return BitConverter.ToUInt64(data, 0);
         }
     }
 }
