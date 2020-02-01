@@ -39,6 +39,14 @@ namespace XbRecUnpack
 
         public bool Read()
         {
+            reader.BaseStream.Position = 0;
+            var magic = reader.ReadUInt16();
+            if (magic != 0x5a4d && magic != 0x4d5a)
+            {
+                Console.WriteLine("Error: recovery isn't proper EXE file!");
+                return false;
+            }
+
             Console.WriteLine("Scanning recovery EXE...");
             cabHeaderPos = new List<long>();
             while(reader.BaseStream.Position + 8 < reader.BaseStream.Length)
@@ -122,6 +130,7 @@ namespace XbRecUnpack
                     Variants.Add(entry.Variant);
             }
 
+            Console.WriteLine();
             Console.WriteLine($"Recovery contents:");
             Console.WriteLine($"{Entries.Count} files");
             Console.WriteLine($"{Variants.Count} variants:");
