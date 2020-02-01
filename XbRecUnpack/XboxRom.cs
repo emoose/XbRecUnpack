@@ -67,6 +67,20 @@ namespace XbRecUnpack
         public ushort SmcBuild;
         public string MotherboardType;
         public int MotherboardTypeInt;
+        public int MotherboardTypeRevision;
+
+        static string[] kMotherboardTypes = {
+            "none/unk",
+            "xenon", // -w
+            "zephyr", // -z
+            "falcon", // -f
+            "jasper", // -j
+            "trinity",  // -t
+            "corona",  // -c
+            "winchester", // -wi
+            "unknown0x8", // ? unreleased ?
+            "ridgeway", // -r ? datacenter?, kernel detects this based on Corona + XBOX_HW_FLAG_DATA_CENTER_MODE (0x2) ?
+        };
 
         public int Version
         {
@@ -93,9 +107,10 @@ namespace XbRecUnpack
 
                 UnmungeSmc();
 
-                string[] types = { "none/unk", "xenon", "zephyr", "falcon", "jasper", "trinity", "corona", "winchester" };
-                MotherboardTypeInt = ((SmcData[0x100] >> 4) & 0xF) & 7;
-                MotherboardType = types[MotherboardTypeInt];
+                MotherboardTypeInt = ((SmcData[0x100] >> 4) & 0xF) % kMotherboardTypes.Length;
+                MotherboardTypeRevision = SmcData[0x100] & 0xF;
+                MotherboardType = $"0x{SmcData[0x100]:X}: {kMotherboardTypes[MotherboardTypeInt]}-r{MotherboardTypeRevision}";
+
                 byte[] smcver = new byte[] { SmcData[0x102], SmcData[0x101] };
                 SmcBuild = BitConverter.ToUInt16(smcver, 0);
             }

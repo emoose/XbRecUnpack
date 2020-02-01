@@ -17,7 +17,7 @@ namespace XbRecUnpack
 
         // Versions & Mobos supported by the input recovery
         static List<int> Versions = new List<int>();
-        static List<int> Motherboards = new List<int>();
+        static List<string> Motherboards = new List<string>();
         static List<string> XboxOGMotherboards = new List<string>();
 
         [STAThread]
@@ -122,6 +122,8 @@ namespace XbRecUnpack
 
                 if (Versions.Count > 0)
                 {
+                    Versions.Sort();
+
                     Console.WriteLine($"{Versions.Count} included kernel build{(Versions.Count == 1 ? "" : "s")}");
                     foreach (var ver in Versions)
                         Console.WriteLine($"  {ver}");
@@ -131,10 +133,9 @@ namespace XbRecUnpack
                 {
                     Console.WriteLine($"{moboCount} supported motherboard{(moboCount == 1 ? "" : "s")}");
 
-                    string[] types = { "none/unk", "xenon", "zephyr", "falcon", "jasper", "trinity", "corona", "winchester" };
-                    for (int i = 0; i < types.Length; i++)
-                        if (Motherboards.Contains(i))
-                            Console.WriteLine($"  {types[i]}");
+                    Motherboards.Sort();
+                    foreach(var mobo in Motherboards)
+                        Console.WriteLine($"  {mobo}");
 
                     XboxOGMotherboards.Sort();
                     foreach (var mobo in XboxOGMotherboards)
@@ -191,15 +192,18 @@ namespace XbRecUnpack
 
                         if (printRomInfo)
                         {
-                            Console.WriteLine(path.Substring(outputPath.Length + 1));
-                            Console.WriteLine($"  {header.MotherboardType} v{header.Version} (SMC v{header.SmcBuild})");
                             Console.WriteLine();
+                            var miniPath = path.Substring(outputPath.Length + 1);
+                            if (miniPath.EndsWith(@"\KERNEL"))
+                                miniPath = miniPath.Substring(0, miniPath.Length - 7);
+                            Console.WriteLine(miniPath + ":");
+                            Console.WriteLine($"  {header.MotherboardType} v{header.Version} (SMC v{header.SmcBuild})");
                         }
 
                         if (!Versions.Contains(header.Version))
                             Versions.Add(header.Version);
-                        if (!Motherboards.Contains(header.MotherboardTypeInt))
-                            Motherboards.Add(header.MotherboardTypeInt);
+                        if (!Motherboards.Contains(header.MotherboardType))
+                            Motherboards.Add(header.MotherboardType);
                     }
                 }
             }
