@@ -18,13 +18,45 @@ namespace XbRecUnpack
 
         static List<int> Versions = new List<int>();
         static List<int> Motherboards = new List<int>();
+        static List<string> XboxOGMotherboards = new List<string>();
         static string outputPath;
 
         static void SearchForXboxRoms(string path, bool printRomInfo = false)
         {
             foreach(var file in Directory.GetFiles(path))
             {
-                if(Path.GetFileName(file).ToLower() == "xboxrom_update.bin")
+                var fileName = Path.GetFileName(file).ToLower();
+
+                // Check filenames for Xbox OG motherboard types
+                // TODO: check recoveries for any other types!
+                {
+                    string ogmobo = null;
+                    if (fileName == "xboxrom_dvt2.bin")
+                        ogmobo = "dvt2";
+                    else if (fileName == "xboxrom_dvt4.bin")
+                        ogmobo = "dvt4";
+                    else if (fileName == "xboxrom_dvt6.bin")
+                        ogmobo = "dvt6";
+                    else if (fileName == "xboxrom_xblade.bin")
+                        ogmobo = "xblade";
+                    // Haven't seen any of the following yet:
+                    else if (fileName == "xboxrom_dvt.bin" || fileName == "xboxrom_dvt1.bin")
+                        ogmobo = "dvt1";
+                    else if (fileName == "xboxrom_dvt3.bin")
+                        ogmobo = "dvt3";
+                    else if (fileName == "xboxrom_dvt5.bin")
+                        ogmobo = "dvt5";
+                    else if (fileName == "xboxrom_dvt7.bin")
+                        ogmobo = "dvt7";
+
+                    if (ogmobo != null && !XboxOGMotherboards.Contains(ogmobo))
+                    {
+                        XboxOGMotherboards.Add(ogmobo);
+                        continue;
+                    }
+                }
+
+                if (fileName == "xboxrom_update.bin")
                 {
                     using (var reader = new BinaryReader(File.OpenRead(file)))
                     {
@@ -126,15 +158,25 @@ namespace XbRecUnpack
 
             SearchForXboxRoms(outputPath, printRomInfo);
 
-            Console.WriteLine($"{Versions.Count} included kernel build{(Versions.Count == 1 ? "" : "s")}");
-            foreach (var ver in Versions)
-                Console.WriteLine($"  {ver}");
-            Console.WriteLine($"{Motherboards.Count} supported motherboard{(Motherboards.Count == 1 ? "" : "s")}");
+            // Don't print kernel builds if we haven't got any, since we can't detect Xbox OG kernels atm
+            if (Versions.Count > 0)
+            {
+                Console.WriteLine($"{Versions.Count} included kernel build{(Versions.Count == 1 ? "" : "s")}");
+                foreach (var ver in Versions)
+                    Console.WriteLine($"  {ver}");
+            }
+
+            var moboCount = Motherboards.Count + XboxOGMotherboards.Count;
+            Console.WriteLine($"{moboCount} supported motherboard{(moboCount == 1 ? "" : "s")}");
 
             string[] types = { "none/unk", "xenon", "zephyr", "falcon", "jasper", "trinity", "corona", "winchester" };
             for(int i = 0; i < types.Length; i++)
                 if(Motherboards.Contains(i))
                     Console.WriteLine($"  {types[i]}");
+
+            XboxOGMotherboards.Sort();
+            foreach (var mobo in XboxOGMotherboards)
+                Console.WriteLine($"  {mobo}");
 
             Console.WriteLine();
             Console.WriteLine("Extract complete, hit enter to exit");
