@@ -168,8 +168,46 @@ namespace XbRecUnpack
             }
         }
 
+        static bool ProcessRecoveryGDF(Stream isoStream, string outputPath, bool extractFiles = true, bool consoleOutput = true)
+        {
+            var gdf = new XboxGDFImage(isoStream);
+            if (!gdf.Read())
+                return false;
+
+            var entry = new GdfEntry();
+            if (!gdf.GetEntry("recctrl.bin", ref entry, false))
+            {
+                Console.WriteLine("Failed to find recctrl.bin inside GDF image!");
+                return false;
+            }
+
+            using (var reader = new BinaryReader(gdf.OpenFile(entry)))
+            {
+                Stream dataStream = null;
+                if(extractFiles)
+                {
+                    if (!gdf.GetEntry("recdata.bin", ref entry, false))
+                    {
+                        Console.WriteLine("Failed to find recdata.bin inside GDF image!");
+                        return false;
+                    }
+                    dataStream = gdf.OpenFile(entry);
+                }
+
+                ProcessRecovery(reader, dataStream, outputPath, consoleOutput);
+
+                if (dataStream != null)
+                    dataStream.Close();
+
+                return true;
+            }
+        }
+
         static void ProcessRecoveryISO(Stream isoStream, string outputPath, bool extractFiles = true, bool consoleOutput = true)
         {
+            if (ProcessRecoveryGDF(isoStream, outputPath, extractFiles, consoleOutput))
+                return;
+
             DiscUtils.Vfs.VfsFileSystemFacade vfs = new CDReader(isoStream, true, false);
             if (!vfs.FileExists("recctrl.bin"))
                 vfs = new UdfReader(isoStream);
@@ -178,6 +216,7 @@ namespace XbRecUnpack
                 Console.WriteLine("Failed to find recctrl.bin inside image!");
                 return;
             }
+
             using (var reader = new BinaryReader(vfs.OpenFile("recctrl.bin", FileMode.Open)))
             {
                 Stream dataStream = null;
