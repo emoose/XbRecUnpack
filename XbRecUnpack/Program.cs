@@ -1,4 +1,4 @@
-﻿/* XbRecUnpack - tool for extracting Xbox/Xbox360 recovery files
+﻿/* XbRecUnpack - tool for extracting Xbox/Xbox360 SDKs & recoveries
  * by emoose
  */
 
@@ -28,9 +28,18 @@ namespace XbRecUnpack
             bool extractFiles = true;
             bool printRomInfo = false;
 
-            Console.WriteLine("XbRecUnpack - tool for extracting Xbox/Xbox360 recovery files");
+            Console.WriteLine("XbRecUnpack - tool for extracting Xbox/Xbox360 SDKs & recoveries");
             Console.WriteLine("v2.3456 by emoose");
             Console.WriteLine();
+            {
+                var maxPathSize = Util.GetMaxPathSize();
+                if (maxPathSize < 300)
+                {
+                    Console.WriteLine($"Warning: system max path size limit is {maxPathSize} characters.");
+                    Console.WriteLine($"You may run into problems extracting files with long paths!");
+                    Console.WriteLine();
+                }
+            }
 
             string filePath = @"";
             int pathIdx = 0;
@@ -55,25 +64,24 @@ namespace XbRecUnpack
             {
                 Console.WriteLine("Usage: ");
                 Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recctrl.bin> [output-folder]");
-                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-remote-recovery.exe> [output-folder]");
+                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-SDK/remote-recovery.exe> [output-folder]");
                 Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.iso> [output-folder]");
                 Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.zip> [output-folder]");
                 Console.WriteLine("Will try extracting all files to the given output folder");
                 Console.WriteLine("If output folder isn't specified, will extract to \"<input-file-path>_ext\"");
-                Console.WriteLine("-L will only list files inside recovery without extracting them");
-                Console.WriteLine("-R will print info about each extracted X360 xboxrom image");
+                Console.WriteLine("-L will only list entries inside input file without extracting them");
+                Console.WriteLine("-R will print info about any extracted X360 xboxrom images");
                 Console.WriteLine("  (if -R isn't used, will print a summary instead)");
                 return;
             }
 
-            string dataPath = filePath.Replace("recctrl", "recdata");
             outputPath = filePath + "_ext";
             if (args.Length > pathIdx)
                 outputPath = args[pathIdx];
 
             if (!File.Exists(filePath))
             {
-                Console.WriteLine($"Error: failed to open recovery file from path {filePath}!");
+                Console.WriteLine($"Error: failed to open file from path {filePath}!");
                 return;
             }
 
@@ -86,9 +94,10 @@ namespace XbRecUnpack
                 result = ProcessRecoveryZIP(filePath, outputPath, extractFiles);
             else
             {
+                string dataPath = filePath.Replace("recctrl", "recdata");
                 if (extractFiles && !File.Exists(dataPath))
                 {
-                    Console.WriteLine($"Error: failed to open recovery data from path {dataPath}!");
+                    Console.WriteLine($"Error: failed to open datafile from path {dataPath}!");
                     return;
                 }
 
@@ -98,30 +107,42 @@ namespace XbRecUnpack
             if (!extractFiles || !result)
                 return;
 
-            Console.WriteLine();
-            Console.WriteLine("xboxrom info:");
+            if (printRomInfo)
+            {
+                Console.WriteLine();
+                Console.WriteLine("xboxrom info:");
+            }
 
             SearchForXboxRoms(outputPath, printRomInfo);
 
-            // Don't print kernel builds if we haven't got any, since we can't detect Xbox OG kernels atm
-            if (Versions.Count > 0)
-            {
-                Console.WriteLine($"{Versions.Count} included kernel build{(Versions.Count == 1 ? "" : "s")}");
-                foreach (var ver in Versions)
-                    Console.WriteLine($"  {ver}");
-            }
-
             var moboCount = Motherboards.Count + XboxOGMotherboards.Count;
-            Console.WriteLine($"{moboCount} supported motherboard{(moboCount == 1 ? "" : "s")}");
 
-            string[] types = { "none/unk", "xenon", "zephyr", "falcon", "jasper", "trinity", "corona", "winchester" };
-            for(int i = 0; i < types.Length; i++)
-                if(Motherboards.Contains(i))
-                    Console.WriteLine($"  {types[i]}");
+            if (Versions.Count > 0 || moboCount > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine("xboxrom summary:");
 
-            XboxOGMotherboards.Sort();
-            foreach (var mobo in XboxOGMotherboards)
-                Console.WriteLine($"  {mobo}");
+                if (Versions.Count > 0)
+                {
+                    Console.WriteLine($"{Versions.Count} included kernel build{(Versions.Count == 1 ? "" : "s")}");
+                    foreach (var ver in Versions)
+                        Console.WriteLine($"  {ver}");
+                }
+
+                if (moboCount > 0)
+                {
+                    Console.WriteLine($"{moboCount} supported motherboard{(moboCount == 1 ? "" : "s")}");
+
+                    string[] types = { "none/unk", "xenon", "zephyr", "falcon", "jasper", "trinity", "corona", "winchester" };
+                    for (int i = 0; i < types.Length; i++)
+                        if (Motherboards.Contains(i))
+                            Console.WriteLine($"  {types[i]}");
+
+                    XboxOGMotherboards.Sort();
+                    foreach (var mobo in XboxOGMotherboards)
+                        Console.WriteLine($"  {mobo}");
+                }
+            }
 
             Console.WriteLine();
             Console.WriteLine("Extract complete, hit enter to exit");
@@ -324,8 +345,8 @@ namespace XbRecUnpack
             if (consoleOutput)
             {
                 Console.WriteLine($"recctrl.bin contents:");
-                Console.WriteLine($"{controlFile.Entries.Count} files");
-                Console.WriteLine($"{controlFile.Versions.Count} variants:");
+                Console.WriteLine($"{controlFile.Entries.Count} file{(controlFile.Entries.Count == 1 ? "" : "s")}");
+                Console.WriteLine($"{controlFile.Versions.Count} variant{(controlFile.Versions.Count == 1 ? "" : "s")}:");
                 for (i = 1; i < controlFile.Versions.Count; i++)
                 {
                     var numFiles = 0;
@@ -333,11 +354,11 @@ namespace XbRecUnpack
                         if (entry.VersionIndex == i)
                             numFiles++;
 
-                    Console.WriteLine($"  - {controlFile.Versions[i]} ({numFiles} files)");
+                    Console.WriteLine($"  - {controlFile.Versions[i]} ({numFiles} file{(numFiles == 1 ? "" : "s")})");
                 }
 
                 Console.WriteLine();
-                Console.WriteLine($"{controlFile.Devices.Count} devices:");
+                Console.WriteLine($"{controlFile.Devices.Count} device{(controlFile.Devices.Count == 1 ? "" : "s")}:");
                 for (i = 0; i < controlFile.Devices.Count; i++)
                 {
                     var numFiles = 0;
@@ -346,7 +367,7 @@ namespace XbRecUnpack
                             numFiles++;
 
                     var device = controlFile.Devices[i];
-                    Console.WriteLine($"  - {device.Key} = {device.Value} ({numFiles} files)");
+                    Console.WriteLine($"  - {device.Key} = {device.Value} ({numFiles} file{(numFiles == 1 ? "" : "s")})");
                 }
 
                 Console.WriteLine();

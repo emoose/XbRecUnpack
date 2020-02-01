@@ -9,11 +9,22 @@ namespace XbRecUnpack
 {
     struct ManifestEntry
     {
+        public string LangID; // usually 0000, sometimes 0409 or 0411
         public string Variant;
         public string Action;
         public string BasePath;
         public string FilePath;
         public string CopyDestPath;
+
+        public string VariantAndLang
+        {
+            get
+            {
+                if (LangID == "0000")
+                    return Variant;
+                return $"{Variant}.{LangID}";
+            }
+        }
     }
     class RemoteRecovery
     {
@@ -47,7 +58,7 @@ namespace XbRecUnpack
                 return false;
             }
 
-            Console.WriteLine("Scanning recovery EXE...");
+            Console.WriteLine("Scanning EXE...");
             cabHeaderPos = new List<long>();
             while(reader.BaseStream.Position + 8 < reader.BaseStream.Length)
             {
@@ -111,10 +122,11 @@ namespace XbRecUnpack
                 if (parts.Length < 6)
                     continue;
 
-                if (parts[2] != "file" && parts[2] != "copy")
+                if (parts[2] != "file" && parts[2] != "copy" && parts[2] != "sharedfile" && parts[2] != "backupsharedfile" && parts[2] != "singlefile")
                     continue;
 
                 var entry = new ManifestEntry();
+                entry.LangID = parts[0];
                 entry.Variant = parts[1];
                 entry.Action = parts[2];
                 entry.BasePath = parts[3];
@@ -131,9 +143,9 @@ namespace XbRecUnpack
             }
 
             Console.WriteLine();
-            Console.WriteLine($"Recovery contents:");
-            Console.WriteLine($"{Entries.Count} files");
-            Console.WriteLine($"{Variants.Count} variants:");
+            Console.WriteLine($"EXE contents:");
+            Console.WriteLine($"{Entries.Count} file{(Entries.Count == 1 ? "" : "s")}");
+            Console.WriteLine($"{Variants.Count} variant{(Variants.Count == 1 ? "" : "s")}:");
             foreach(var variant in Variants)
             {
                 int numFiles = 0;
@@ -141,7 +153,7 @@ namespace XbRecUnpack
                     if (entry.Variant == variant)
                         numFiles++;
 
-                Console.WriteLine($"  - {variant} ({numFiles} files)");
+                Console.WriteLine($"  - {variant} ({numFiles} file{(numFiles == 1 ? "" : "s")})");
             }
 
             Console.WriteLine();
@@ -167,10 +179,10 @@ namespace XbRecUnpack
             int totalIndex = 1;
             foreach(var entry in Entries)
             {
-                var variantPath = Path.Combine(entry.Variant, entry.FilePath);
+                var variantPath = Path.Combine(entry.VariantAndLang, entry.FilePath);
                 var entryPath = Path.Combine(destDirPath, variantPath);
 
-                if (entry.Action == "file")
+                if (entry.Action == "file" || entry.Action == "sharedfile" || entry.Action == "backupsharedfile" || entry.Action == "singlefile")
                 {
                     if (cabIndex >= mainCab.Entries.Count)
                     {

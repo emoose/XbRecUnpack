@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Reflection;
 
 namespace XbRecUnpack
 {
@@ -19,6 +20,18 @@ namespace XbRecUnpack
                 reader.BaseStream.Position++; // pad to next power of 2
 
             return Encoding.ASCII.GetString(str);
+        }
+
+        public static int GetMaxPathSize()
+        {
+            // reflection
+            FieldInfo maxPathField = typeof(Path).GetField("MaxPath",
+                BindingFlags.Static |
+                BindingFlags.GetField |
+                BindingFlags.NonPublic);
+
+            // invoke the field gettor, which returns 260
+            return (int)maxPathField.GetValue(null);
         }
 
         public static string ReadNullTermASCII(this BinaryReader reader)

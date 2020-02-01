@@ -76,6 +76,19 @@ namespace XbRecUnpack
 
         MemoryStream decompressed;
 
+        long decompressedSize = 0;
+
+        int headerReservedSize = 0;
+        int folderReservedSize = 0;
+        int dataReservedSize = 0;
+        byte[] headerReserved;
+
+        string szCabinetPrev = null; // (optional) name of previous cabinet file
+        string szDiskPrev = null; // (optional) name of previous disk
+
+        string szCabinetNext = null; // (optional) name of next cabinet file
+        string szDiskNext = null; // (optional) name of next disk
+
         public CabFile(Stream cabStream)
         {
             reader = new BinaryReader(cabStream);
@@ -89,6 +102,28 @@ namespace XbRecUnpack
             if (!header.IsValid)
                 return false;
 
+            if((header.flags & 4) == 4)
+            {
+                headerReservedSize = reader.ReadUInt16();
+                folderReservedSize = reader.ReadByte();
+                dataReservedSize = reader.ReadByte();
+
+                if (headerReservedSize > 0)
+                    headerReserved = reader.ReadBytes(headerReservedSize);
+            }
+
+            if((header.flags & 1) == 1)
+            {
+                szCabinetPrev = reader.ReadNullTermASCII();
+                szDiskPrev = reader.ReadNullTermASCII();
+            }
+
+            if((header.flags & 2) == 2)
+            {
+                szCabinetNext = reader.ReadNullTermASCII();
+                szDiskNext = reader.ReadNullTermASCII();
+            }
+
             folder = reader.ReadStruct<CFFOLDER>();
 
             reader.BaseStream.Position = headerPos + header.coffFiles;
@@ -98,16 +133,27 @@ namespace XbRecUnpack
                 var name = reader.ReadNullTermASCII();
 
                 Entries.Add(new Tuple<CFFILE, string>(file, name));
+                decompressedSize += file.cbFile;
             }
 
             return true;
         }
 
-        bool DecompressFolder(Stream outputStream)
+        bool DecompressFolder()
         {
+            if(decompressed != null)
+                decompressed.Close();
+
+            decompressed = new MemoryStream();
+
+            Console.WriteLine("Decompressing cabinet into RAM...");
+
             var compType = (folder.typeCompress & 0xFF);
             if (compType == 3)
             {
+                Console.WriteLine($"(~{Util.GetBytesReadable(header.cbCabinet)} -> ~{Util.GetBytesReadable(decompressedSize)})");
+
+                // LZX decompress it
                 var windowSize = 1 << ((folder.typeCompress >> 8) & 0x1f);
                 var lzx = new LzxDecoder(windowSize, 0x8000);
 
@@ -116,7 +162,10 @@ namespace XbRecUnpack
                 for (int i = 0; i < folder.cCFData; i++)
                 {
                     var data = reader.ReadStruct<CFDATA>();
-                    lzx.Decompress(reader.BaseStream, data.cbData, outputStream, data.cbUncomp);
+                    if (dataReservedSize > 0)
+                        reader.BaseStream.Position += dataReservedSize;
+
+                    lzx.Decompress(reader.BaseStream, data.cbData, decompressed, data.cbUncomp);
                 }
                 return true;
             }
@@ -126,13 +175,16 @@ namespace XbRecUnpack
                 for (int i = 0; i < folder.cCFData; i++)
                 {
                     var data = reader.ReadStruct<CFDATA>();
+                    if (dataReservedSize > 0)
+                        reader.BaseStream.Position += dataReservedSize;
+
                     byte[] block = reader.ReadBytes(data.cbData);
-                    outputStream.Write(block, 0, block.Length);
+                    decompressed.Write(block, 0, block.Length);
                 }
                 return true;
             }
 
-            Console.WriteLine($"Error: Cabinet uses unsupported compression type {compType}!");
+            Console.WriteLine($"Error: cabinet uses unsupported compression type {compType}!");
             return false;
         }
 
@@ -165,9 +217,7 @@ namespace XbRecUnpack
         {
             if(decompressed == null)
             {
-                Console.WriteLine("Decompressing cabinet into RAM...");
-                decompressed = new MemoryStream();
-                if (!DecompressFolder(decompressed))
+                if (!DecompressFolder())
                     return null;
             }
 
