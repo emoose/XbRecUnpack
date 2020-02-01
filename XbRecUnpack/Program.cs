@@ -15,15 +15,118 @@ namespace XbRecUnpack
 {
     class Program
     {
+        static string outputPath;
 
+        // Versions & Mobos supported by the input recovery
         static List<int> Versions = new List<int>();
         static List<int> Motherboards = new List<int>();
         static List<string> XboxOGMotherboards = new List<string>();
-        static string outputPath;
+
+        [STAThread]
+        static void Main(string[] args)
+        {
+            bool extractFiles = true;
+            bool printRomInfo = false;
+
+            Console.WriteLine("XbRecUnpack - tool for extracting Xbox/Xbox360 recovery files");
+            Console.WriteLine("v1.2345 by emoose");
+
+            string filePath = @"";
+            int pathIdx = 0;
+            if (args.Length > pathIdx)
+            {
+                if (args[0].ToLower() == "-l")
+                {
+                    extractFiles = false;
+                    pathIdx++; // use next arg as filepath
+                }
+                else if(args[0].ToLower() == "-r")
+                {
+                    printRomInfo = true;
+                    pathIdx++;
+                }
+                if (args.Length > pathIdx)
+                    filePath = args[pathIdx];
+            }
+            pathIdx++;
+
+            if (string.IsNullOrEmpty(filePath))
+            {
+                Console.WriteLine("Usage: ");
+                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recctrl.bin> [output-folder]");
+                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.iso> [output-folder]");
+                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.zip> [output-folder]");
+                Console.WriteLine("Will try extracting all files to the given output folder");
+                Console.WriteLine("If output folder isn't specified, will extract to \"<input-file-path>_ext\"");
+                Console.WriteLine("-L will only list files inside recovery without extracting them");
+                Console.WriteLine("-R will print info about each extracted X360 xboxrom image");
+                Console.WriteLine("  (if -R isn't used, will print a summary instead)");
+                return;
+            }
+
+            string dataPath = filePath.Replace("recctrl", "recdata");
+            outputPath = filePath + "_ext";
+            if (args.Length > pathIdx)
+                outputPath = args[pathIdx];
+
+            if (!File.Exists(filePath))
+            {
+                Console.WriteLine($"Error: failed to open recovery file from path {filePath}!");
+                return;
+            }
+
+            bool result = false;
+            if (Path.GetExtension(filePath).ToLower() == ".iso")
+                result = ProcessRecoveryISO(File.OpenRead(filePath), outputPath, extractFiles);
+            else if (Path.GetExtension(filePath).ToLower() == ".zip")
+                result = ProcessRecoveryZIP(filePath, outputPath, extractFiles);
+            else
+            {
+                if (extractFiles && !File.Exists(dataPath))
+                {
+                    Console.WriteLine($"Error: failed to open recovery data from path {dataPath}!");
+                    return;
+                }
+
+                result = ProcessRecovery(filePath, dataPath, outputPath, extractFiles);
+            }
+
+            if (!extractFiles || !result)
+                return;
+
+            Console.WriteLine();
+            Console.WriteLine("xboxrom info:");
+
+            SearchForXboxRoms(outputPath, printRomInfo);
+
+            // Don't print kernel builds if we haven't got any, since we can't detect Xbox OG kernels atm
+            if (Versions.Count > 0)
+            {
+                Console.WriteLine($"{Versions.Count} included kernel build{(Versions.Count == 1 ? "" : "s")}");
+                foreach (var ver in Versions)
+                    Console.WriteLine($"  {ver}");
+            }
+
+            var moboCount = Motherboards.Count + XboxOGMotherboards.Count;
+            Console.WriteLine($"{moboCount} supported motherboard{(moboCount == 1 ? "" : "s")}");
+
+            string[] types = { "none/unk", "xenon", "zephyr", "falcon", "jasper", "trinity", "corona", "winchester" };
+            for(int i = 0; i < types.Length; i++)
+                if(Motherboards.Contains(i))
+                    Console.WriteLine($"  {types[i]}");
+
+            XboxOGMotherboards.Sort();
+            foreach (var mobo in XboxOGMotherboards)
+                Console.WriteLine($"  {mobo}");
+
+            Console.WriteLine();
+            Console.WriteLine("Extract complete, hit enter to exit");
+            Console.ReadLine();
+        }
 
         static void SearchForXboxRoms(string path, bool printRomInfo = false)
         {
-            foreach(var file in Directory.GetFiles(path))
+            foreach (var file in Directory.GetFiles(path))
             {
                 var fileName = Path.GetFileName(file).ToLower();
 
@@ -82,108 +185,7 @@ namespace XbRecUnpack
                 SearchForXboxRoms(dir, printRomInfo);
         }
 
-        [STAThread]
-        static void Main(string[] args)
-        {
-            bool extractFiles = true;
-            bool printRomInfo = false;
-
-            Console.WriteLine("XbRecUnpack - tool for extracting Xbox/Xbox360 recovery files");
-            Console.WriteLine("v1.2345 by emoose");
-
-            string filePath = @"";
-            int pathIdx = 0;
-            if (args.Length > pathIdx)
-            {
-                if (args[0].ToLower() == "-l")
-                {
-                    extractFiles = false;
-                    pathIdx++; // use next arg as filepath
-                }
-                else if(args[0].ToLower() == "-r")
-                {
-                    printRomInfo = true;
-                    pathIdx++;
-                }
-                if (args.Length > pathIdx)
-                    filePath = args[pathIdx];
-            }
-            pathIdx++;
-
-            if (string.IsNullOrEmpty(filePath))
-            {
-                Console.WriteLine("Usage: ");
-                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recctrl.bin> [output-folder]");
-                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.iso> [output-folder]");
-                Console.WriteLine("  XbRecUnpack.exe [-L/-R] <path-to-recovery.zip> [output-folder]");
-                Console.WriteLine("Will try extracting all files to the given output folder");
-                Console.WriteLine("If output folder isn't specified, will extract to \"<input-file-path>_ext\"");
-                Console.WriteLine("-L will only list files inside recovery without extracting them");
-                Console.WriteLine("-R will print info about each extracted X360 xboxrom image");
-                Console.WriteLine("  (if -R isn't used, will print a summary instead)");
-                return;
-            }
-
-            string dataPath = filePath.Replace("recctrl", "recdata");
-            outputPath = filePath + "_ext";
-            if (args.Length > pathIdx)
-                outputPath = args[pathIdx];
-
-            if (!File.Exists(filePath))
-            {
-                Console.WriteLine($"Error: failed to open recovery file from path {filePath}!");
-                return;
-            }
-
-            if (Path.GetExtension(filePath).ToLower() == ".iso")
-                ProcessRecoveryISO(File.OpenRead(filePath), outputPath, extractFiles);
-            else if (Path.GetExtension(filePath).ToLower() == ".zip")
-                ProcessRecoveryZIP(filePath, outputPath, extractFiles);
-            else
-            {
-                if (extractFiles && !File.Exists(dataPath))
-                {
-                    Console.WriteLine($"Error: failed to open recovery data from path {dataPath}!");
-                    return;
-                }
-
-                ProcessRecovery(filePath, dataPath, outputPath, extractFiles);
-            }
-
-            if (!extractFiles)
-                return;
-
-            Console.WriteLine();
-            Console.WriteLine("xboxrom info:");
-
-            SearchForXboxRoms(outputPath, printRomInfo);
-
-            // Don't print kernel builds if we haven't got any, since we can't detect Xbox OG kernels atm
-            if (Versions.Count > 0)
-            {
-                Console.WriteLine($"{Versions.Count} included kernel build{(Versions.Count == 1 ? "" : "s")}");
-                foreach (var ver in Versions)
-                    Console.WriteLine($"  {ver}");
-            }
-
-            var moboCount = Motherboards.Count + XboxOGMotherboards.Count;
-            Console.WriteLine($"{moboCount} supported motherboard{(moboCount == 1 ? "" : "s")}");
-
-            string[] types = { "none/unk", "xenon", "zephyr", "falcon", "jasper", "trinity", "corona", "winchester" };
-            for(int i = 0; i < types.Length; i++)
-                if(Motherboards.Contains(i))
-                    Console.WriteLine($"  {types[i]}");
-
-            XboxOGMotherboards.Sort();
-            foreach (var mobo in XboxOGMotherboards)
-                Console.WriteLine($"  {mobo}");
-
-            Console.WriteLine();
-            Console.WriteLine("Extract complete, hit enter to exit");
-            Console.ReadLine();
-        }
-
-        static void ProcessRecoveryZIP(string zipPath, string outputPath, bool extractFiles = true, bool consoleOutput = true)
+        static bool ProcessRecoveryZIP(string zipPath, string outputPath, bool extractFiles = true, bool consoleOutput = true)
         {
             using (var fileStream = File.OpenRead(zipPath))
             {
@@ -196,7 +198,10 @@ namespace XbRecUnpack
                             isoEntry = entry;
                     }
                     if (isoEntry == null)
-                        return; // TODO: display error
+                    {
+                        Console.WriteLine("Failed to find ISO inside ZIP file!");
+                        return false;
+                    }
 
                     // ZIP stream doesn't support setting position, have to copy it to another stream...
                     using (var memoryStream = new MemoryStream())
@@ -204,7 +209,7 @@ namespace XbRecUnpack
                         if (consoleOutput)
                             Console.WriteLine($"Extracting {isoEntry.Name} from ZIP file...");
                         isoEntry.Open().CopyTo(memoryStream);
-                        ProcessRecoveryISO(memoryStream, outputPath, extractFiles, consoleOutput);
+                        return ProcessRecoveryISO(memoryStream, outputPath, extractFiles, consoleOutput);
                     }
                 }
             }
@@ -236,19 +241,19 @@ namespace XbRecUnpack
                     dataStream = gdf.OpenFile(entry);
                 }
 
-                ProcessRecovery(reader, dataStream, outputPath, consoleOutput);
+                bool res = ProcessRecovery(reader, dataStream, outputPath, consoleOutput);
 
                 if (dataStream != null)
                     dataStream.Close();
 
-                return true;
+                return res;
             }
         }
 
-        static void ProcessRecoveryISO(Stream isoStream, string outputPath, bool extractFiles = true, bool consoleOutput = true)
+        static bool ProcessRecoveryISO(Stream isoStream, string outputPath, bool extractFiles = true, bool consoleOutput = true)
         {
             if (ProcessRecoveryGDF(isoStream, outputPath, extractFiles, consoleOutput))
-                return;
+                return true;
 
             DiscUtils.Vfs.VfsFileSystemFacade vfs = new CDReader(isoStream, true, false);
             if (!vfs.FileExists("recctrl.bin"))
@@ -256,7 +261,7 @@ namespace XbRecUnpack
             if (!vfs.FileExists("recctrl.bin"))
             {
                 Console.WriteLine("Failed to find recctrl.bin inside image!");
-                return;
+                return false;
             }
 
             using (var reader = new BinaryReader(vfs.OpenFile("recctrl.bin", FileMode.Open)))
@@ -265,14 +270,16 @@ namespace XbRecUnpack
                 if (extractFiles)
                     dataStream = vfs.OpenFile("recdata.bin", FileMode.Open);
 
-                ProcessRecovery(reader, dataStream, outputPath, consoleOutput);
+                bool res = ProcessRecovery(reader, dataStream, outputPath, consoleOutput);
 
                 if (dataStream != null)
                     dataStream.Close();
+
+                return res;
             }
         }
 
-        static void ProcessRecovery(string controlPath, string dataPath, string outputPath, bool extractFiles = true, bool consoleOutput = true)
+        static bool ProcessRecovery(string controlPath, string dataPath, string outputPath, bool extractFiles = true, bool consoleOutput = true)
         {
             using (var reader = new BinaryReader(File.OpenRead(controlPath)))
             {
@@ -280,14 +287,16 @@ namespace XbRecUnpack
                 if (extractFiles)
                     dataStream = File.OpenRead(dataPath);
 
-                ProcessRecovery(reader, dataStream, outputPath, consoleOutput);
+                bool res = ProcessRecovery(reader, dataStream, outputPath, consoleOutput);
 
                 if (dataStream != null)
                     dataStream.Close();
+
+                return res;
             }
         }
 
-        static void ProcessRecovery(BinaryReader controlReader, Stream dataStream, string outputPath, bool consoleOutput = true)
+        static bool ProcessRecovery(BinaryReader controlReader, Stream dataStream, string outputPath, bool consoleOutput = true)
         {
             var controlFile = new RecoveryControlFile();
             controlFile.Read(controlReader);
@@ -369,6 +378,8 @@ namespace XbRecUnpack
                     Console.WriteLine("!!! Failed to extract as LZX data is invalid, is the data file corrupt?");
                 }
             }
+
+            return true;
         }
     }
 }
