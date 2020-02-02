@@ -154,17 +154,23 @@ namespace XbRecUnpack
 
                 // LZX decompress it
                 var windowSize = 1 << ((folder.typeCompress >> 8) & 0x1f);
-                var lzx = new LzxDecoder(windowSize, 0x8000);
+                var lzx = new LZXDeflate(windowSize);
 
                 reader.BaseStream.Position = headerPos + folder.coffCabStart;
 
+                byte[] input = new byte[LZXDeflate.MAX_COMPRESSED_BLOCK_SIZE];
+                byte[] output = new byte[LZXDeflate.MAX_DECOMPRESSED_BLOCK_SIZE];
                 for (int i = 0; i < folder.cCFData; i++)
                 {
                     var data = reader.ReadStruct<CFDATA>();
                     if (dataReservedSize > 0)
                         reader.BaseStream.Position += dataReservedSize;
 
-                    lzx.Decompress(reader.BaseStream, data.cbData, decompressed, data.cbUncomp);
+                    reader.BaseStream.Read(input, 0, data.cbData);
+                    int size = lzx.Decompress(ref input, data.cbData, ref output, data.cbUncomp);
+                    decompressed.Write(output, 0, data.cbUncomp);
+                    if (size != data.cbUncomp)
+                        Console.WriteLine($"LZX warning: returned 0x{size:X} bytes, expected 0x{data.cbUncomp:X}!");
                 }
                 return true;
             }
@@ -215,10 +221,8 @@ namespace XbRecUnpack
         public Stream OpenFile(CFFILE entry)
         {
             if(decompressed == null)
-            {
                 if (!DecompressFolder())
                     return null;
-            }
 
             return new WindowedStream(decompressed, entry.uoffFolderStart, entry.cbFile);
         }

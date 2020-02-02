@@ -6,6 +6,8 @@ namespace XbRecUnpack
 {
     public class RecoveryControlEntry
     {
+        public const int LZXDecompressedBlockSize = 0x8000;
+
         private RecoveryControlFile _baseFile; // ControlFile instance so we can retrieve version/device arrays
         public long DataOffset; // DataOffset isn't stored inside entry, so we have to track this ourselves
 
@@ -124,15 +126,29 @@ namespace XbRecUnpack
         // Tries extracting file from the recdata stream
         public void Extract(Stream dataStream, Stream outputStream)
         {
-            var lzx = new LzxDecoder(_baseFile.WindowSize, 0x8000);
+            var lzx = new LZXDeflate(_baseFile.WindowSize);
 
             dataStream.Position = DataOffset;
             long outStreamPosition = outputStream.Position;
 
+            byte[] input = new byte[LZXDeflate.MAX_COMPRESSED_BLOCK_SIZE];
+            byte[] output = new byte[LZXDeflate.MAX_DECOMPRESSED_BLOCK_SIZE];
+            int size = 0;
             foreach (var blockSize in LzxBlocks)
-                lzx.Decompress(dataStream, blockSize, outputStream, 0x8000);
+            {
+                dataStream.Read(input, 0, blockSize);
+                size = lzx.Decompress(ref input, blockSize, ref output, LZXDecompressedBlockSize);
+                outputStream.Write(output, 0, LZXDecompressedBlockSize);
+                if(size != LZXDecompressedBlockSize)
+                    Console.WriteLine($"LZX warning: returned 0x{size:X} bytes, expected 0x{LZXDecompressedBlockSize:X}!");
 
-            lzx.Decompress(dataStream, FinalBlockCompSize, outputStream, FinalBlockDecSize);
+            }
+
+            dataStream.Read(input, 0, FinalBlockCompSize);
+            size = lzx.Decompress(ref input, FinalBlockCompSize, ref output, FinalBlockDecSize);
+            outputStream.Write(output, 0, FinalBlockDecSize);
+            if (size != FinalBlockDecSize)
+                Console.WriteLine($"LZX warning: returned 0x{size:X} bytes, expected 0x{FinalBlockDecSize:X}!");
 
             // Trim file to size in the entry header
             outputStream.SetLength(outStreamPosition + DecompressedSize);
