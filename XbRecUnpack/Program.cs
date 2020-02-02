@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using DiscUtils.Iso9660;
 using DiscUtils.Udf;
 
@@ -17,7 +18,7 @@ namespace XbRecUnpack
 
         // Versions & Mobos supported by the input recovery
         static List<int> Versions = new List<int>();
-        static List<string> Motherboards = new List<string>();
+        static Dictionary<string, List<int>> Motherboards = new Dictionary<string, List<int>>();
         static List<string> XboxOGMotherboards = new List<string>();
 
         [STAThread]
@@ -133,9 +134,18 @@ namespace XbRecUnpack
                 {
                     Console.WriteLine($"{moboCount} supported motherboard{(moboCount == 1 ? "" : "s")}");
 
-                    Motherboards.Sort();
-                    foreach(var mobo in Motherboards)
-                        Console.WriteLine($"  {mobo}");
+                    List<string> moboKeys = Motherboards.Keys.ToList();
+                    moboKeys.Sort();
+                    foreach(var mobo in moboKeys)
+                    {
+                        var versions = Motherboards[mobo];
+                        versions.Sort();
+                        var info = $"  {mobo} (kernels: ";
+                        for (int i = 0; i < versions.Count; i++)
+                            info += (i > 0 ? ", " : "") + versions[i].ToString();
+                        info += ")";
+                        Console.WriteLine(info);
+                    }
 
                     XboxOGMotherboards.Sort();
                     foreach (var mobo in XboxOGMotherboards)
@@ -202,8 +212,10 @@ namespace XbRecUnpack
 
                         if (!Versions.Contains(header.Version))
                             Versions.Add(header.Version);
-                        if (!Motherboards.Contains(header.MotherboardType))
-                            Motherboards.Add(header.MotherboardType);
+                        if (!Motherboards.ContainsKey(header.MotherboardType))
+                            Motherboards[header.MotherboardType] = new List<int>();
+                        if (!Motherboards[header.MotherboardType].Contains(header.Version))
+                            Motherboards[header.MotherboardType].Add(header.Version);
                     }
                 }
             }
