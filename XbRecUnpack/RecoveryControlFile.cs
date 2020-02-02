@@ -8,7 +8,7 @@ namespace XbRecUnpack
     {
         public const int LZXDecompressedBlockSize = 0x8000;
 
-        private RecoveryControlFile _baseFile; // ControlFile instance so we can retrieve version/device arrays
+        private readonly RecoveryControlFile _baseFile; // ControlFile instance so we can retrieve version/device arrays
         public long DataOffset; // DataOffset isn't stored inside entry, so we have to track this ourselves
 
         // All following fields are stored in the entry itself, in little-endian format
@@ -139,7 +139,7 @@ namespace XbRecUnpack
                 dataStream.Read(input, 0, blockSize);
                 size = lzx.Decompress(ref input, blockSize, ref output, LZXDecompressedBlockSize);
                 outputStream.Write(output, 0, LZXDecompressedBlockSize);
-                if(size != LZXDecompressedBlockSize)
+                if (size != LZXDecompressedBlockSize)
                     Console.WriteLine($"LZX warning: returned 0x{size:X} bytes, expected 0x{LZXDecompressedBlockSize:X}!");
 
             }

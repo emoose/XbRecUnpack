@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 
 // NOTE: Only tested with Xbox OG recovery ISOs, games & X360 ISOs likely won't work well with it
 namespace XbRecUnpack
@@ -45,8 +45,7 @@ namespace XbRecUnpack
         const int kSectorSize = 0x800;
 
         public GdfHeader VolumeDescriptor;
-
-        BinaryReader reader;
+        readonly BinaryReader reader;
 
         public List<Tuple<GdfEntry, string>> Entries = new List<Tuple<GdfEntry, string>>();
 
@@ -57,14 +56,14 @@ namespace XbRecUnpack
 
         static long SectorToOffset(long sector)
         {
-            return sector * (long)kSectorSize;
+            return sector * kSectorSize;
         }
 
         public bool Read()
         {
             reader.BaseStream.Position = 0x8000;
             VolumeDescriptor = reader.ReadStruct<GdfHeader>();
-            if(!VolumeDescriptor.IsValid)
+            if (!VolumeDescriptor.IsValid)
             {
                 reader.BaseStream.Position = 0x10000;
                 VolumeDescriptor = reader.ReadStruct<GdfHeader>();
@@ -93,9 +92,9 @@ namespace XbRecUnpack
 
         public bool GetEntry(string fileName, ref GdfEntry entry, bool caseSensitive = true)
         {
-            foreach(var pair in Entries)
+            foreach (var pair in Entries)
             {
-                if(caseSensitive)
+                if (caseSensitive)
                 {
                     if (fileName == pair.Item2)
                     {
@@ -124,9 +123,9 @@ namespace XbRecUnpack
 
     public class WindowedStream : Stream
     {
-        private Stream source;
+        private readonly Stream source;
 
-        private long sourceOffset;
+        private readonly long sourceOffset;
 
         private long length = -1;
 

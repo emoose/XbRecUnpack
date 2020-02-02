@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
+using System.Text;
 
 namespace XbRecUnpack
 {
@@ -26,7 +26,7 @@ namespace XbRecUnpack
     }
     class RemoteRecovery
     {
-        BinaryReader reader;
+        readonly BinaryReader reader;
         List<ManifestEntry> Entries;
         List<long> cabHeaderPos;
 
@@ -71,7 +71,7 @@ namespace XbRecUnpack
 
             while (position + 8 < length)
             {
-                view = (view << 8) | reader.ReadByte() ; // shift-in next byte
+                view = (view << 8) | reader.ReadByte(); // shift-in next byte
                 position++;
                 viewed++;
                 if (view == pattern && viewed >= 8) // make sure we already got at least 4 bytes
@@ -124,7 +124,7 @@ namespace XbRecUnpack
                 break;
             }
 
-            if(csv == null)
+            if (csv == null)
             {
                 Console.WriteLine("Error: failed to read manifest.csv from meta-cab section!");
                 return false;
@@ -132,7 +132,7 @@ namespace XbRecUnpack
 
             Variants = new List<string>();
             Entries = new List<ManifestEntry>();
-            foreach(var line in csv)
+            foreach (var line in csv)
             {
                 if (string.IsNullOrEmpty(line))
                     continue;
@@ -169,7 +169,7 @@ namespace XbRecUnpack
             Console.WriteLine($"EXE contents:");
             Console.WriteLine($"{Entries.Count} file{(Entries.Count == 1 ? "" : "s")}");
             Console.WriteLine($"{Variants.Count} variant{(Variants.Count == 1 ? "" : "s")}:");
-            foreach(var variant in Variants)
+            foreach (var variant in Variants)
             {
                 int numFiles = 0;
                 foreach (var entry in Entries)
@@ -200,7 +200,7 @@ namespace XbRecUnpack
 
             int cabIndex = 0;
             int totalIndex = 1;
-            foreach(var entry in Entries)
+            foreach (var entry in Entries)
             {
                 var variantPath = Path.Combine(entry.VariantAndLang, entry.FilePath);
                 var entryPath = Path.Combine(destDirPath, variantPath);
@@ -231,7 +231,7 @@ namespace XbRecUnpack
 
                     var cfEntry = mainCab.Entries[cabIndex];
 
-                    if(cfEntry.Item2.ToLower() != entry.FilePath.ToLower())
+                    if (cfEntry.Item2.ToLower() != entry.FilePath.ToLower())
                     {
                         Console.WriteLine("Warning: mismatch between manifest entry and cab entry!");
                     }
@@ -259,7 +259,7 @@ namespace XbRecUnpack
                             byte[] buffer = new byte[32768];
                             while (sizeRemain > 0)
                             {
-                                int read = (int)Math.Min((long)buffer.Length, sizeRemain);
+                                int read = (int)Math.Min(buffer.Length, sizeRemain);
                                 srcStream.Read(buffer, 0, read);
                                 destStream.Write(buffer, 0, read);
                                 sizeRemain -= read;
@@ -271,7 +271,7 @@ namespace XbRecUnpack
 
                     cabIndex++;
                 }
-                else if(entry.Action == "copy")
+                else if (entry.Action == "copy")
                 {
                     variantPath = Path.Combine(entry.Variant, entry.CopyDestPath);
                     string destPath = "";

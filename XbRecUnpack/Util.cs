@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace XbRecUnpack
 {
@@ -14,7 +14,7 @@ namespace XbRecUnpack
         public static string ReadMSString(this BinaryReader reader)
         {
             ushort length = reader.ReadUInt16();
-            byte[] str = reader.ReadBytes((int)length);
+            byte[] str = reader.ReadBytes(length);
 
             if ((reader.BaseStream.Position & 1) == 1)
                 reader.BaseStream.Position++; // pad to next power of 2
@@ -39,7 +39,7 @@ namespace XbRecUnpack
             var list = new List<byte>();
 
             var byt = reader.ReadByte();
-            while(byt != 0)
+            while (byt != 0)
             {
                 list.Add(byt);
                 byt = reader.ReadByte();

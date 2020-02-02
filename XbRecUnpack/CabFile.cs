@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.IO;
+using System.Runtime.InteropServices;
 
 // TODO: this doesn't support cabs that use multiple CFFOLDERS (if any do)
 // Also only supports LZX compression, there's code to support non-compressed data too but it's untested
@@ -70,8 +70,7 @@ namespace XbRecUnpack
         CFFOLDER folder;
 
         public List<Tuple<CFFILE, string>> Entries = new List<Tuple<CFFILE, string>>();
-
-        BinaryReader reader;
+        readonly BinaryReader reader;
 
         MemoryStream decompressed;
 
@@ -101,7 +100,7 @@ namespace XbRecUnpack
             if (!header.IsValid)
                 return false;
 
-            if((header.flags & 4) == 4)
+            if ((header.flags & 4) == 4)
             {
                 headerReservedSize = reader.ReadUInt16();
                 folderReservedSize = reader.ReadByte();
@@ -111,13 +110,13 @@ namespace XbRecUnpack
                     headerReserved = reader.ReadBytes(headerReservedSize);
             }
 
-            if((header.flags & 1) == 1)
+            if ((header.flags & 1) == 1)
             {
                 szCabinetPrev = reader.ReadNullTermASCII();
                 szDiskPrev = reader.ReadNullTermASCII();
             }
 
-            if((header.flags & 2) == 2)
+            if ((header.flags & 2) == 2)
             {
                 szCabinetNext = reader.ReadNullTermASCII();
                 szDiskNext = reader.ReadNullTermASCII();
@@ -126,7 +125,7 @@ namespace XbRecUnpack
             folder = reader.ReadStruct<CFFOLDER>();
 
             reader.BaseStream.Position = headerPos + header.coffFiles;
-            for(int i = 0; i < header.cFiles; i++)
+            for (int i = 0; i < header.cFiles; i++)
             {
                 var file = reader.ReadStruct<CFFILE>();
                 var name = reader.ReadNullTermASCII();
@@ -140,7 +139,7 @@ namespace XbRecUnpack
 
         bool DecompressFolder()
         {
-            if(decompressed != null)
+            if (decompressed != null)
                 decompressed.Close();
 
             decompressed = new MemoryStream();
@@ -174,7 +173,7 @@ namespace XbRecUnpack
                 }
                 return true;
             }
-            else if(compType == 0)
+            else if (compType == 0)
             {
                 reader.BaseStream.Position = headerPos + folder.coffCabStart;
                 for (int i = 0; i < folder.cCFData; i++)
@@ -220,7 +219,7 @@ namespace XbRecUnpack
 
         public Stream OpenFile(CFFILE entry)
         {
-            if(decompressed == null)
+            if (decompressed == null)
                 if (!DecompressFolder())
                     return null;
 

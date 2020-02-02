@@ -2,13 +2,13 @@
  * by emoose
  */
 
+using DiscUtils.Iso9660;
+using DiscUtils.Udf;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using DiscUtils.Iso9660;
-using DiscUtils.Udf;
 
 namespace XbRecUnpack
 {
@@ -17,9 +17,9 @@ namespace XbRecUnpack
         static string outputPath;
 
         // Versions & Mobos supported by the input recovery
-        static List<int> Versions = new List<int>();
-        static Dictionary<string, List<int>> Motherboards = new Dictionary<string, List<int>>();
-        static List<string> XboxOGMotherboards = new List<string>();
+        static readonly List<int> Versions = new List<int>();
+        static readonly Dictionary<string, List<int>> Motherboards = new Dictionary<string, List<int>>();
+        static readonly List<string> XboxOGMotherboards = new List<string>();
 
         [STAThread]
         static void Main(string[] args)
@@ -28,7 +28,7 @@ namespace XbRecUnpack
             bool printRomInfo = false;
 
             Console.WriteLine("XbRecUnpack - tool for extracting Xbox/Xbox360 SDKs & recoveries");
-            Console.WriteLine("v2.3456 by emoose");
+            Console.WriteLine("v2.34567 by emoose");
             Console.WriteLine();
             {
                 var maxPathSize = Util.GetMaxPathSize();
@@ -49,7 +49,7 @@ namespace XbRecUnpack
                     extractFiles = false;
                     pathIdx++; // use next arg as filepath
                 }
-                else if(args[0].ToLower() == "-r")
+                else if (args[0].ToLower() == "-r")
                 {
                     printRomInfo = true;
                     pathIdx++;
@@ -85,7 +85,7 @@ namespace XbRecUnpack
             }
 
             bool result = false;
-            if(Path.GetExtension(filePath).ToLower() == ".exe")
+            if (Path.GetExtension(filePath).ToLower() == ".exe")
                 result = ProcessRecoveryEXE(filePath, outputPath, extractFiles);
             else if (Path.GetExtension(filePath).ToLower() == ".iso")
                 result = ProcessRecoveryISO(File.OpenRead(filePath), outputPath, extractFiles);
@@ -136,7 +136,7 @@ namespace XbRecUnpack
 
                     List<string> moboKeys = Motherboards.Keys.ToList();
                     moboKeys.Sort();
-                    foreach(var mobo in moboKeys)
+                    foreach (var mobo in moboKeys)
                     {
                         var versions = Motherboards[mobo];
                         versions.Sort();
@@ -232,7 +232,7 @@ namespace XbRecUnpack
                 if (!recovery.Read())
                     return false;
 
-                if(extractFiles)
+                if (extractFiles)
                     Console.WriteLine($"Extracting to {outputPath}...");
 
                 return recovery.Extract(outputPath, !extractFiles);
@@ -246,7 +246,7 @@ namespace XbRecUnpack
                 using (var archive = new ZipArchive(fileStream))
                 {
                     ZipArchiveEntry isoEntry = null;
-                    foreach(var entry in archive.Entries)
+                    foreach (var entry in archive.Entries)
                     {
                         if (Path.GetExtension(entry.Name).ToLower() == ".iso")
                             isoEntry = entry;
@@ -285,7 +285,7 @@ namespace XbRecUnpack
             using (var reader = new BinaryReader(gdf.OpenFile(entry)))
             {
                 Stream dataStream = null;
-                if(extractFiles)
+                if (extractFiles)
                 {
                     if (!gdf.GetEntry("recdata.bin", ref entry, false))
                     {

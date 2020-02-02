@@ -69,7 +69,7 @@ namespace XbRecUnpack
         public int MotherboardTypeInt;
         public int MotherboardTypeRevision;
 
-        static string[] kMotherboardTypes = {
+        static readonly string[] kMotherboardTypes = {
             "none/unk",
             "xenon", // -w
             "zephyr", // -z
@@ -100,7 +100,7 @@ namespace XbRecUnpack
             NextHeader = reader.ReadStruct<BLDR>();
             NextHeader.EndianSwap();
 
-            if(FlashHeader.dwSmcBootAddr != 0)
+            if (FlashHeader.dwSmcBootAddr != 0)
             {
                 reader.BaseStream.Position = headerPos + FlashHeader.dwSmcBootAddr;
                 SmcData = reader.ReadBytes((int)FlashHeader.dwSmcBootSize);
