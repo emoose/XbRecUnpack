@@ -85,13 +85,17 @@ namespace XbRecUnpack
             }
 
             string[] csv = null;
-            // Read the second cab in the file, contains some meta info about the other ones
+
+            // Read the meta cab in the exe, contains some info about the other cabs
+            // Usually the second cab in the file, but we'll try the third cabinet in the file if it exists, and use it if it contains manifest.csv
+            // (because second cabinet inside xbox OG SDKs seems to be corrupt or something, with the data actually being in the third one, odd)
+
+            var metaIdx = cabHeaderPos.Count > 2 ? 2 : 1;
             while (cabHeaderPos.Count > 1)
             {
-                reader.BaseStream.Position = cabHeaderPos[1];
-
-                // Remove the meta cab from cab header list...
-                cabHeaderPos.RemoveAt(1);
+                var thisIdx = metaIdx;
+                reader.BaseStream.Position = cabHeaderPos[metaIdx];
+                metaIdx = 1;
 
                 // Try reading metacab
                 var metaCab = new CabFile(reader.BaseStream);
@@ -102,6 +106,9 @@ namespace XbRecUnpack
                 var manifest = new CFFILE();
                 if (!metaCab.GetEntry("manifest.csv", ref manifest, false))
                     continue;
+
+                // Remove the meta cab from cab header list...
+                cabHeaderPos.RemoveAt(thisIdx);
 
                 Stream manifestStream = null;
                 try

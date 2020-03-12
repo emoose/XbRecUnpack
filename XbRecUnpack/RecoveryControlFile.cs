@@ -126,13 +126,13 @@ namespace XbRecUnpack
         // Tries extracting file from the recdata stream
         public void Extract(Stream dataStream, Stream outputStream)
         {
-            var lzx = new LzxDecoder(_baseFile.WindowSize, 0x8000);
+            var lzx = new LzxDecoder(_baseFile.WindowSize, LZXDecompressedBlockSize);
 
             dataStream.Position = DataOffset;
             long outStreamPosition = outputStream.Position;
 
             foreach (var blockSize in LzxBlocks)
-                lzx.Decompress(dataStream, blockSize, outputStream, 0x8000);
+                lzx.Decompress(dataStream, blockSize, outputStream, LZXDecompressedBlockSize);
 
             lzx.Decompress(dataStream, FinalBlockCompSize, outputStream, FinalBlockDecSize);
 
