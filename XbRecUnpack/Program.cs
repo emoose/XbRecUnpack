@@ -411,11 +411,26 @@ namespace XbRecUnpack
                 if (!Directory.Exists(destDir))
                     Directory.CreateDirectory(destDir);
 
-                using (var destStream = File.Create(destPath))
-                    entry.Extract(dataStream, destStream);
+                try
+                {
+                    using (var destStream = File.Create(destPath))
+                        entry.Extract(dataStream, destStream);
 
-                // Set last modified time to entry's timestamp
-                File.SetLastWriteTime(destPath, entry.DateTime);
+                    // Set last modified time to entry's timestamp
+                    File.SetLastWriteTime(destPath, entry.DateTime);
+                }
+                catch (LzxInvalidWindowSize)
+                {
+                    Console.WriteLine("!!! Failed to extract due to invalid LZX window size, is the control file corrupt?");
+                }
+                catch (LzxDataLargerThanAgreed)
+                {
+                    Console.WriteLine("!!! Failed to extract as LZX data block is larger than expected, is the control file corrupt?");
+                }
+                catch (LzxDataInvalid)
+                {
+                    Console.WriteLine("!!! Failed to extract as LZX data is invalid, is the data file corrupt?");
+                }
             }
 
             return true;
