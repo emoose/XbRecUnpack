@@ -28,7 +28,7 @@ namespace XbRecUnpack
             bool printRomInfo = false;
 
             Console.WriteLine("XbRecUnpack - tool for extracting Xbox/Xbox360 SDKs & recoveries");
-            Console.WriteLine("v2.34567 by emoose");
+            Console.WriteLine("v3.456 by emoose");
             Console.WriteLine();
             {
                 var maxPathSize = Util.GetMaxPathSize();
